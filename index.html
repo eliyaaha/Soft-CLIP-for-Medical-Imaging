@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description" content="Soft-CLIP for Medical Imaging: pseudo-positive supervision for chest X-ray image-report retrieval on MIMIC-CXR.">
+  <meta property="og:title" content="Soft-CLIP for Medical Imaging"/>
+  <meta property="og:description" content="Teaching CLIP that radiology reports can agree with each other: a blog post on report-based soft supervision for chest X-ray retrieval."/>
+  <meta property="og:image" content="static/images/fig1_sternotomy.png" />
+  <meta property="og:image:width" content="1200"/>
+  <meta property="og:image:height" content="630"/>
+
+  <meta name="twitter:title" content="Soft-CLIP for Medical Imaging">
+  <meta name="twitter:description" content="What happens when you tell CLIP that some 'wrong' answers were basically right? A chest X-ray retrieval project on MIMIC-CXR.">
+  <meta name="twitter:image" content="static/images/fig1_sternotomy.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="keywords" content="CLIP, Soft-CLIP, medical imaging, chest X-ray, MIMIC-CXR, image-text retrieval, contrastive learning, vision-language">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Soft-CLIP for Medical Imaging: When "Wrong" Reports Aren't Really Wrong</title>
+  <link rel="icon" type="image/x-icon" href="static/images/favicon.ico">
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
+
+  <link rel="stylesheet" href="static/css/bulma.min.css">
+  <link rel="stylesheet" href="static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="static/css/fontawesome.all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="static/css/index.css">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="static/js/fontawesome.all.min.js"></script>
+  <script src="static/js/bulma-carousel.min.js"></script>
+  <script src="static/js/bulma-slider.min.js"></script>
+  <script src="static/js/index.js"></script>
+
+  <style>
+    .blog-body p { margin-bottom: 1em; line-height: 1.7; }
+    .blog-body h3 { margin-top: 1.6em; }
+    .blog-body table { margin: 1.5em auto; }
+    .figure-caption { font-size: 0.92rem; color: #555; margin-top: 0.5em; }
+    .best-cell { font-weight: 700; background-color: #eef6ff; }
+    .read-time { color: #777; }
+    .pull-quote { border-left: 4px solid #3a86ff; padding-left: 1em; font-style: italic; color: #333; margin: 1.5em 0; }
+    .method-diagram text { font-family: 'Noto Sans', sans-serif; }
+  </style>
+</head>
+<body>
+
+  <section class="hero">
+    <div class="hero-body">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered">
+          <div class="column has-text-centered">
+            <h1 class="title is-2 publication-title">Soft-CLIP for Medical Imaging: Teaching a Retrieval Model That "Wrong" Reports Can Still Be Right</h1>
+            <div class="is-size-5 publication-authors">
+              <span class="author-block">Omer Toledano<sup>*</sup>,</span>
+              <span class="author-block">Eliya Aharon<sup>*</sup></span>
+            </div>
+            <div class="is-size-5 publication-authors">
+              <span class="author-block">Department of Software and Information Systems Engineering<br>Ben-Gurion University &middot; AI-MD Course Project</span>
+              <span class="eql-cntrb"><small><br><sup>*</sup>Equal contribution</small></span>
+            </div>
+            <p class="read-time"><i class="fas fa-clock"></i> ~10 minute read</p>
+
+            <div class="column has-text-centered">
+              <div class="publication-links">
+                <span class="link-block">
+                  <a href="static/pdfs/AIMD_final_project.pdf" target="_blank" class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon"><i class="fas fa-file-pdf"></i></span>
+                    <span>Full Report (PDF)</span>
+                  </a>
+                </span>
+                <span class="link-block">
+                  <a href="https://github.com/YOUR-USERNAME/soft-clip-medical-imaging" target="_blank" class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon"><i class="fab fa-github"></i></span>
+                    <span>Code</span>
+                  </a>
+                </span>
+                <span class="link-block">
+                  <a href="https://physionet.org/content/mimic-cxr/2.0.0/" target="_blank" class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon"><i class="fas fa-database"></i></span>
+                    <span>MIMIC-CXR Dataset</span>
+                  </a>
+                </span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Teaser image -->
+  <section class="hero teaser">
+    <div class="container is-max-desktop">
+      <div class="hero-body">
+        <img src="static/images/fig1_sternotomy.png" alt="A chest X-ray query and the report the model retrieved for it, both showing the same surgical wires">
+        <h2 class="subtitle has-text-centered">
+          Two chest X-rays of the same patient, taken at different visits, for different reasons. Our model kept matching them &mdash; because of the wires, not the diagnosis.
+        </h2>
+      </div>
+    </div>
+  </section>
+
+  <!-- Intro -->
+  <section class="section hero is-light">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered has-text-centered">
+        <div class="column is-four-fifths">
+          <h2 class="title is-3">The short version</h2>
+          <div class="content has-text-justified blog-body">
+            <p>
+              We trained CLIP-style models to match chest X-rays to their radiology reports, using the MIMIC-CXR dataset. Standard CLIP training treats every non-matching image and report in a batch as a hard negative, even though two different patients' reports can describe nearly the same finding. We relaxed that assumption with a technique called <strong>Soft-CLIP</strong>: instead of only rewarding the model for its one true pairing, we also gave partial credit for retrieving reports that are semantically similar to the correct one, based on embedding similarity between reports.
+            </p>
+            <p>
+              This pushed Recall@1 for image-to-text retrieval from 9.66% to 11.94%, and text-to-image Recall@1 from 11.25% to 12.14%. But the more interesting result showed up when we tried to understand <em>why</em> the model was making certain retrievals: some of its "correct-ish" matches came from recognizing a specific patient's body, like surgical wires, rather than the actual clinical finding in the report. That's the story this post is really about.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Body -->
+  <section class="section">
+    <div class="container is-max-desktop content blog-body">
+
+      <h3 class="title is-4">Why retrieval, and why radiology?</h3>
+      <p>
+        Radiologists already do a version of this task by hand: when reading a chest X-ray, it's common to pull up a patient's prior studies, or to recall a similar case, to help interpret what's in front of them. A model that can reliably retrieve the clinically closest report for a given image &mdash; or the closest image for a given report &mdash; could support that workflow: case review, decision support, or simply building intuition from similar cases.
+      </p>
+      <p>
+        The dominant tool for this kind of cross-modal retrieval is CLIP (Contrastive Language-Image Pre-training). CLIP learns a shared embedding space for images and text by pulling matched pairs together and pushing every other pairing in the training batch apart. That works well when non-matches really are unrelated &mdash; a photo of a dog is unrelated to a caption about a bicycle. It works less well in radiology, where two <em>different</em> patients' reports might both say "moderate cardiomegaly, no acute findings," and treating those as a hard negative pair actively fights against what the model should be learning.
+      </p>
+
+      <h3 class="title is-4">The idea: soft targets from report similarity</h3>
+      <p>
+        This isn't a new observation &mdash; SoftCLIP (Gao et al., 2023) introduced soft supervision for general vision-language training using visual-region and tag similarity, and Ko &amp; Park (2025) built a chest X-ray-specific version that combines textual similarity, clinical-label similarity, and knowledge-graph similarity. Our project asks a narrower question: <strong>if you build soft supervision purely from report-embedding similarity &mdash; nothing else &mdash; which design choices actually move the needle?</strong>
+      </p>
+      <p>
+        Concretely, we replace CLIP's one-hot supervision with a hybrid loss. For every image-report pair, we still use the standard CLIP cross-entropy loss against the true match, but we add a KL-divergence term that pulls the model's retrieval distribution toward a <em>soft target</em>: a distribution built from how similar the true report's embedding is to every other report in the batch.
+      </p>
+      <div class="has-text-centered" style="margin: 2em 0;">
+        <svg class="method-diagram" viewBox="0 0 760 230" xmlns="http://www.w3.org/2000/svg" style="max-width:700px;width:100%;">
+          <rect x="10" y="90" width="150" height="50" rx="8" fill="#eef6ff" stroke="#3a86ff"/>
+          <text x="85" y="120" text-anchor="middle" font-size="15">Report text</text>
+          <line x1="160" y1="115" x2="230" y2="115" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+          <rect x="230" y="90" width="160" height="50" rx="8" fill="#eef6ff" stroke="#3a86ff"/>
+          <text x="310" y="112" text-anchor="middle" font-size="14">External text</text>
+          <text x="310" y="128" text-anchor="middle" font-size="14">embedding model</text>
+          <line x1="390" y1="115" x2="460" y2="115" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+          <rect x="460" y="90" width="160" height="50" rx="8" fill="#fff2ea" stroke="#e07a3f"/>
+          <text x="540" y="112" text-anchor="middle" font-size="14">Report-report</text>
+          <text x="540" y="128" text-anchor="middle" font-size="14">similarity row</text>
+          <line x1="540" y1="90" x2="540" y2="40" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+          <rect x="440" y="0" width="200" height="35" rx="8" fill="#fdeeee" stroke="#c0392b"/>
+          <text x="540" y="22" text-anchor="middle" font-size="14">Soft target distribution</text>
+          <line x1="540" y1="140" x2="540" y2="185" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+          <rect x="420" y="185" width="240" height="40" rx="8" fill="#eefaf0" stroke="#2e8b57"/>
+          <text x="540" y="210" text-anchor="middle" font-size="14">L_total = (1&minus;&beta;)L_CE + &beta;L_KL</text>
+          <defs>
+            <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#333"/></marker>
+          </defs>
+        </svg>
+        <p class="figure-caption">How the soft target enters training: report embeddings from an external language model define a similarity row per report, which becomes the soft target for the KL term.</p>
+      </div>
+      <p>
+        Two knobs control how this behaves. First, <strong>which reports count as pseudo-positives</strong>: do we take the K most similar reports in the batch for every sample (fixed top-K), or do we take every report whose similarity clears some threshold &tau; (which lets the number of pseudo-positives vary per sample)? Second, <strong>how much weight the soft term gets</strong>, via &beta; in the loss above. We also had to pick <strong>which embedding model</strong> turns report text into the vectors this whole scheme depends on.
+      </p>
+
+      <h3 class="title is-4">The data</h3>
+      <p>
+        We used MIMIC-CXR, a large public dataset of chest radiographs paired with free-text radiology reports, split into Findings and Impression sections. After removing studies with empty text and images that failed to load, we were left with 249,018 training and 2,018 validation image-report pairs. Training runs at the image level, but because a single study can include multiple X-ray views, evaluation is done at the study level, grouping all images that share a <code>study_id</code>.
+      </p>
+      <p>
+        We started from a pretrained <code>openai/clip-vit-base-patch32</code> checkpoint and fine-tuned it with a study-level contrastive loss, so that multiple images from the same study count as positives for each other. Each configuration trained for up to 10 epochs (about 7 minutes per epoch on a single RTX 6000) with early stopping, and was evaluated once with a fixed random seed.
+      </p>
+
+      <h3 class="title is-4">Picking an embedding model</h3>
+      <p>
+        We compared three text embedding models for constructing report similarity: <strong>BioClinicalBERT</strong> (general clinical text), <strong>BiomedVLP-CXR-BERT</strong> (pretrained specifically on chest X-ray reports), and <strong>EmbeddingGemma</strong> (a general-purpose dense embedding model). Rather than training a full Soft-CLIP model for each candidate, we used a cheap proxy: the mean and spread of cosine similarity across non-identical report pairs. A model that assigns uniformly high similarity to almost everything is not useful for building a soft-positive structure &mdash; it can't tell "somewhat related" from "basically the same."
+      </p>
+      <table class="table is-bordered is-striped is-hoverable is-fullwidth" style="max-width:600px;margin:1.5em auto;">
+        <thead><tr><th>Embedding source</th><th>Mean similarity</th><th>Std</th></tr></thead>
+        <tbody>
+          <tr><td>BioClinicalBERT</td><td>0.947</td><td>0.037</td></tr>
+          <tr><td>EmbeddingGemma</td><td>0.723</td><td>0.094</td></tr>
+          <tr class="best-cell"><td>BiomedVLP-CXR-BERT</td><td>0.581</td><td>0.127</td></tr>
+        </tbody>
+      </table>
+      <p>
+        BiomedVLP-CXR-BERT gave the lowest mean and widest spread, so we used it going forward. We then compared three ways to pool its output &mdash; the CLS token, mean pooling, and its projected representation (the space it was actually trained to align with images in) &mdash; and the projected representation was the clear winner, with a mean similarity of just 0.035.
+      </p>
+
+      <h3 class="title is-4">Fixed top-K vs. a similarity threshold</h3>
+      <p>
+        A fixed top-K treats every report the same way: always take its K nearest neighbours as pseudo-positives, whether it actually has 20 close relatives in the batch or almost none. A threshold-based approach lets that number vary &mdash; a report surrounded by similar reports gets many pseudo-positives, an unusual report gets few or none. We tested thresholds at the 90th, 95th, and 97th percentile of training similarities (&tau; &isin; {0.681, 0.828, 0.894}), retaining roughly the top 10%, 5%, and 3% of pairs per row.
+      </p>
+      <img src="static/images/fig2_similarity_hist.png" alt="Histogram of report-report cosine similarity with threshold percentiles marked" style="max-width:520px;display:block;margin:0 auto;">
+      <p class="figure-caption has-text-centered">Distribution of report-report cosine similarity on the training split (projected BiomedVLP-CXR-BERT embeddings), with the tested threshold percentiles marked.</p>
+      <p>
+        The stricter threshold, &tau; = 0.894, led on almost every metric in both retrieval directions. Fixed top-K, in contrast, had no consistently best value of K &mdash; different K's won on different metrics, in different directions, without a clear pattern. The takeaway: it's not just <em>how many</em> pseudo-positives a report gets that matters, it's whether that number reflects how genuinely similar its neighbours are.
+      </p>
+
+      <h3 class="title is-4">How much soft supervision is too much?</h3>
+      <p>
+        With the threshold-based selection settled, we swept &beta; &isin; {0.0, 0.1, 0.3, 0.5, 0.7, 1.0}. &beta; = 0.0 is just the hard-CLIP baseline; &beta; = 1.0 drops the hard loss entirely and trains only on the soft KL term.
+      </p>
+      <table class="table is-bordered is-striped is-hoverable is-fullwidth">
+        <thead><tr><th>&beta;</th><th>I2T R@1</th><th>I2T MRR</th><th>T2I R@1</th><th>T2I MRR</th></tr></thead>
+        <tbody>
+          <tr><td>0.0 (hard baseline)</td><td>9.66</td><td>0.1645</td><td>11.25</td><td>0.2005</td></tr>
+          <tr><td>0.1</td><td>10.31</td><td>0.1687</td><td>11.00</td><td>0.2015</td></tr>
+          <tr class="best-cell"><td>0.3</td><td>11.94</td><td>0.1900</td><td>12.14</td><td>0.2225</td></tr>
+          <tr><td>0.5</td><td>11.65</td><td>0.1869</td><td>11.00</td><td>0.2145</td></tr>
+          <tr><td>0.7</td><td>10.65</td><td>0.1773</td><td>10.60</td><td>0.2073</td></tr>
+          <tr><td>1.0 (soft only)</td><td>10.51</td><td>0.1718</td><td>11.45</td><td>0.2034</td></tr>
+        </tbody>
+      </table>
+      <p>
+        &beta; = 0.3 was the clear winner in both directions. Both extremes underperformed: too little soft weight barely changes anything, and dropping the hard loss entirely (&beta; = 1.0) removes the direct incentive to align each image with its own report, and performance suffers. Soft supervision works best as a moderate complement to the original objective, not a replacement for it.
+      </p>
+
+      <div class="pull-quote">
+        Putting it together &mdash; BiomedVLP-CXR-BERT projected embeddings over full report text, threshold selection at &tau; = 0.894, and &beta; = 0.3 &mdash; our best configuration raised image-to-text R@1 from 9.66% to 11.94%, and text-to-image R@1 from 11.25% to 12.14%.
+      </div>
+
+      <h3 class="title is-4">The twist: what is the model actually keying on?</h3>
+      <p>
+        MIMIC-CXR has a quirk that matters here: the same patient can appear multiple times, sometimes with near-identical report wording across visits. So we scored retrieval under four different definitions of a "correct" match, from strict to permissive: an exact study match, a text-identical match regardless of study, a de-duplicated version of that, and a <strong>same-patient</strong> match &mdash; crediting any retrieval from the same patient, at any visit, regardless of what the visit was actually about.
+      </p>
+      <p>
+        The same-patient score was dramatically higher than any study-level score &mdash; image-to-text R@1 jumped from 11.65% under the strict definition to 30.82% under the same-patient definition, nearly triple. That gap dwarfed any difference we saw between embedding models, selection strategies, or values of &beta; in the entire project.
+      </p>
+      <p>
+        That's a red flag: it suggests the model can partly retrieve the right patient using visual cues that have nothing to do with the clinical content of the report. The teaser image at the top of this post is our clearest example. The query image and the retrieved report describe different findings entirely &mdash; the query mentions moderate pulmonary edema, the retrieved report describes a resolving pneumonia workup from a CT scan. But both images show the same patient's median sternotomy wires, a permanent, highly visible feature from a past cardiac surgery that has nothing to do with either finding.
+      </p>
+      <div class="columns is-centered" style="margin-top:1.5em;">
+        <div class="column is-5">
+          <img src="static/images/fig3_query.png" alt="Query chest X-ray" style="width:100%;">
+          <p class="figure-caption has-text-centered">A second example: the query image (portable, semi-erect view).</p>
+        </div>
+        <div class="column is-5">
+          <img src="static/images/fig4_retrieved.png" alt="True and retrieved chest X-ray images from the same patient" style="width:100%;">
+          <p class="figure-caption has-text-centered">Two images from the same patient, different visits. Retrieval here again tracked the patient more than the finding &mdash; the retrieved report explicitly states the effusion described in the query was <em>not</em> present.</p>
+        </div>
+      </div>
+      <p>
+        We checked whether this shortcut was quietly inflating our headline numbers by splitting the validation set into patients with a single study versus patients with multiple studies. Under the strict, study-level definition, there was no significant gap between the two groups. Under the same-patient definition, the gap was large and clearly significant. In other words, the shortcut is real, but it seems mostly confined to the same-patient metric itself &mdash; it doesn't appear to be quietly driving the primary results we report above. Still, it's a reminder that on datasets with repeat patients, a retrieval model's apparent "understanding" needs to be checked against more than one notion of what counts as correct, and it points to a mild patient re-identification concern worth flagging even though addressing it was outside our scope.
+      </p>
+
+      <h3 class="title is-4">Limitations</h3>
+      <p>
+        A few things temper how far these results should be trusted. We picked the embedding source using a proxy metric (similarity spread) rather than by training a full model for every candidate, so it's a reasonable guess rather than a guarantee. Every configuration was trained and evaluated with a single random seed, so small gaps between neighbouring settings &mdash; adjacent thresholds, adjacent K values &mdash; could partly reflect run-to-run noise rather than a real effect. And, as a first project working with medical data by two people without a clinical background, we tried to stay cautious about over-interpreting what the model is "really" doing, particularly around the patient-identity finding.
+      </p>
+
+      <h3 class="title is-4">Where this could go next</h3>
+      <p>
+        Three directions seem most worth pursuing: evaluating the embedding source end-to-end instead of via a proxy metric, repeating the sweeps across multiple seeds to separate real effects from noise, and probing the patient-identity shortcut more directly &mdash; for instance, by explicitly penalizing retrievals that rely on non-clinical visual cues like implanted hardware, rather than only measuring the effect after the fact.
+      </p>
+
+    </div>
+  </section>
+
+  <!-- References -->
+  <section class="section hero is-light">
+    <div class="container is-max-desktop content">
+      <h3 class="title is-4">Further reading</h3>
+      <ul>
+        <li>Gao et al., <a href="https://arxiv.org/abs/2303.17561" target="_blank">SoftCLIP: Softer Cross-modal Alignment Makes CLIP Stronger</a>, arXiv:2303.17561, 2023.</li>
+        <li>Ko &amp; Park, <a href="https://openaccess.thecvf.com/content/CVPR2025/papers/Ko_Bringing_CLIP_to_the_Clinic_Dynamic_Soft_Labels_and_Negation-aware_CVPR_2025_paper.pdf" target="_blank">Bringing CLIP to the Clinic: Dynamic Soft Labels and Negation-aware Learning for Medical Analysis</a>, CVPR 2025.</li>
+        <li>Radford et al., <a href="https://arxiv.org/abs/2103.00020" target="_blank">Learning Transferable Visual Models From Natural Language Supervision (CLIP)</a>, ICML 2021.</li>
+        <li>Boecking et al., <a href="https://arxiv.org/abs/2204.09817" target="_blank">Making the Most of Text Semantics to Improve Biomedical Vision&ndash;Language Processing (BioViL / CXR-BERT)</a>, ECCV 2022.</li>
+        <li>Johnson et al., <a href="https://physionet.org/content/mimic-cxr/2.0.0/" target="_blank">MIMIC-CXR: a de-identified publicly available database of chest radiographs with free-text reports</a>, Scientific Data, 2019.</li>
+      </ul>
+      <p>The full technical report, with additional ablations and qualitative examples, is available as a <a href="static/pdfs/AIMD_final_project.pdf" target="_blank">PDF</a>.</p>
+    </div>
+  </section>
+
+  <!--BibTex citation -->
+  <section class="section" id="BibTeX">
+    <div class="container is-max-desktop content">
+      <h2 class="title">BibTeX</h2>
+      <pre><code>@techreport{toledano2026softclip,
+  title   = {Soft-CLIP for Medical Imaging},
+  author  = {Toledano, Omer and Aharon, Eliya},
+  institution = {Ben-Gurion University of the Negev},
+  note    = {AI-MD Course Project},
+  year    = {2026}
+}</code></pre>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="columns is-centered">
+        <div class="column is-8">
+          <div class="content">
+            <p>
+              This page was built using the <a href="https://github.com/eliahuhorwitz/Academic-project-page-template" target="_blank">Academic Project Page Template</a>, adapted from the <a href="https://nerfies.github.io" target="_blank">Nerfies</a> project page.
+              This website is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/" target="_blank">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
