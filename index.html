@@ -18,7 +18,6 @@
 
   <title>Soft-CLIP for Medical Imaging: When "Wrong" Reports Aren't Really Wrong</title>
   <link rel="icon" type="image/x-icon" href="static/images/favicon.ico">
-  <link rel="icon" type="image/png" href="static/images/favicon.png">
   <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
 
   <link rel="stylesheet" href="static/css/bulma.min.css">
@@ -63,7 +62,6 @@
               <span class="author-block">Department of Software and Information Systems Engineering<br>Ben-Gurion University &middot; AI-MD Course Project</span>
               <span class="eql-cntrb"><small><br><sup>*</sup>Equal contribution</small></span>
             </div>
-            <p class="read-time"><i class="fas fa-clock"></i> ~10 minute read</p>
 
             <div class="column has-text-centered">
               <div class="publication-links">
@@ -90,18 +88,6 @@
 
           </div>
         </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Teaser image -->
-  <section class="hero teaser">
-    <div class="container is-max-desktop">
-      <div class="hero-body">
-        <img src="static/images/fig1_sternotomy.png" alt="A chest X-ray query and the report the model retrieved for it, both showing the same surgical wires">
-        <h2 class="subtitle has-text-centered">
-          Two chest X-rays of the same patient, taken at different visits, for different reasons. Our model kept matching them &mdash; because of the wires, not the diagnosis.
-        </h2>
       </div>
     </div>
   </section>
@@ -196,12 +182,37 @@
         BiomedVLP-CXR-BERT gave the lowest mean and widest spread, so we used it going forward. We then compared three ways to pool its output &mdash; the CLS token, mean pooling, and its projected representation (the space it was actually trained to align with images in) &mdash; and the projected representation was the clear winner, with a mean similarity of just 0.035.
       </p>
 
+      <!-- Image carousel -->
+      <section class="hero is-small">
+        <div class="hero-body">
+          <div class="container">
+            <div id="results-carousel" class="carousel results-carousel">
+              <div class="item">
+                <img src="static/images/fig1_sternotomy.png" alt="Query and retrieved chest X-ray, same patient"/>
+                <h2 class="subtitle has-text-centered">Two chest X-rays of the same patient, taken at different visits. Our model kept matching them — because of the wires, not the diagnosis.</h2>
+              </div>
+              <div class="item">
+                <img src="static/images/fig2_similarity_hist.png" alt="Report similarity histogram"/>
+                <h2 class="subtitle has-text-centered">Distribution of report-report cosine similarity, with the tested threshold percentiles marked.</h2>
+              </div>
+              <div class="item">
+                <img src="static/images/fig3_query.png" alt="Query chest X-ray"/>
+                <h2 class="subtitle has-text-centered">A query image (portable, semi-erect view) from one of our retrieval examples.</h2>
+              </div>
+              <div class="item">
+                <img src="static/images/fig4_retrieved.png" alt="True and retrieved chest X-ray, same patient"/>
+                <h2 class="subtitle has-text-centered">Two images from the same patient, different visits — retrieval tracked the patient more than the finding.</h2>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- End image carousel -->
+
       <h3 class="title is-4">Fixed top-K vs. a similarity threshold</h3>
       <p>
         A fixed top-K treats every report the same way: always take its K nearest neighbours as pseudo-positives, whether it actually has 20 close relatives in the batch or almost none. A threshold-based approach lets that number vary &mdash; a report surrounded by similar reports gets many pseudo-positives, an unusual report gets few or none. We tested thresholds at the 90th, 95th, and 97th percentile of training similarities (&tau; &isin; {0.681, 0.828, 0.894}), retaining roughly the top 10%, 5%, and 3% of pairs per row.
       </p>
-      <img src="static/images/fig2_similarity_hist.png" alt="Histogram of report-report cosine similarity with threshold percentiles marked" style="max-width:520px;display:block;margin:0 auto;">
-      <p class="figure-caption has-text-centered">Distribution of report-report cosine similarity on the training split (projected BiomedVLP-CXR-BERT embeddings), with the tested threshold percentiles marked.</p>
       <p>
         The stricter threshold, &tau; = 0.894, led on almost every metric in both retrieval directions. Fixed top-K, in contrast, had no consistently best value of K &mdash; different K's won on different metrics, in different directions, without a clear pattern. The takeaway: it's not just <em>how many</em> pseudo-positives a report gets that matters, it's whether that number reflects how genuinely similar its neighbours are.
       </p>
@@ -237,18 +248,8 @@
         The same-patient score was dramatically higher than any study-level score &mdash; image-to-text R@1 jumped from 11.65% under the strict definition to 30.82% under the same-patient definition, nearly triple. That gap dwarfed any difference we saw between embedding models, selection strategies, or values of &beta; in the entire project.
       </p>
       <p>
-        That's a red flag: it suggests the model can partly retrieve the right patient using visual cues that have nothing to do with the clinical content of the report. The teaser image at the top of this post is our clearest example. The query image and the retrieved report describe different findings entirely &mdash; the query mentions moderate pulmonary edema, the retrieved report describes a resolving pneumonia workup from a CT scan. But both images show the same patient's median sternotomy wires, a permanent, highly visible feature from a past cardiac surgery that has nothing to do with either finding.
+        That's a red flag: it suggests the model can partly retrieve the right patient using visual cues that have nothing to do with the clinical content of the report. The example in the carousel above is our clearest illustration. The query image and the retrieved report describe different findings entirely &mdash; the query mentions moderate pulmonary edema, the retrieved report describes a resolving pneumonia workup from a CT scan. But both images show the same patient's median sternotomy wires, a permanent, highly visible feature from a past cardiac surgery that has nothing to do with either finding.
       </p>
-      <div class="columns is-centered" style="margin-top:1.5em;">
-        <div class="column is-5">
-          <img src="static/images/fig3_query.png" alt="Query chest X-ray" style="width:100%;">
-          <p class="figure-caption has-text-centered">A second example: the query image (portable, semi-erect view).</p>
-        </div>
-        <div class="column is-5">
-          <img src="static/images/fig4_retrieved.png" alt="True and retrieved chest X-ray images from the same patient" style="width:100%;">
-          <p class="figure-caption has-text-centered">Two images from the same patient, different visits. Retrieval here again tracked the patient more than the finding &mdash; the retrieved report explicitly states the effusion described in the query was <em>not</em> present.</p>
-        </div>
-      </div>
       <p>
         We checked whether this shortcut was quietly inflating our headline numbers by splitting the validation set into patients with a single study versus patients with multiple studies. Under the strict, study-level definition, there was no significant gap between the two groups. Under the same-patient definition, the gap was large and clearly significant. In other words, the shortcut is real, but it seems mostly confined to the same-patient metric itself &mdash; it doesn't appear to be quietly driving the primary results we report above. Still, it's a reminder that on datasets with repeat patients, a retrieval model's apparent "understanding" needs to be checked against more than one notion of what counts as correct, and it points to a mild patient re-identification concern worth flagging even though addressing it was outside our scope.
       </p>
