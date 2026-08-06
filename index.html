@@ -72,7 +72,7 @@
                   </a>
                 </span>
                 <span class="link-block">
-                  <a href="https://github.com/eliyaaha/Soft-CLIP" target="_blank" class="external-link button is-normal is-rounded is-dark">
+                  <a href="https://github.com/eliyaaha/Soft-CLIP-for-Medical-Imaging" target="_blank" class="external-link button is-normal is-rounded is-dark">
                     <span class="icon"><i class="fab fa-github"></i></span>
                     <span>Code</span>
                   </a>
@@ -192,10 +192,6 @@
                 <h2 class="subtitle has-text-centered">Two chest X-rays of the same patient, taken at different visits. Our model kept matching them — because of the wires, not the diagnosis.</h2>
               </div>
               <div class="item">
-                <img src="static/images/fig2_similarity_hist.png" alt="Report similarity histogram"/>
-                <h2 class="subtitle has-text-centered">Distribution of report-report cosine similarity, with the tested threshold percentiles marked.</h2>
-              </div>
-              <div class="item">
                 <img src="static/images/fig3_query.png" alt="Query chest X-ray"/>
                 <h2 class="subtitle has-text-centered">A query image (portable, semi-erect view) from one of our retrieval examples.</h2>
               </div>
@@ -213,6 +209,8 @@
       <p>
         A fixed top-K treats every report the same way: always take its K nearest neighbours as pseudo-positives, whether it actually has 20 close relatives in the batch or almost none. A threshold-based approach lets that number vary &mdash; a report surrounded by similar reports gets many pseudo-positives, an unusual report gets few or none. We tested thresholds at the 90th, 95th, and 97th percentile of training similarities (&tau; &isin; {0.681, 0.828, 0.894}), retaining roughly the top 10%, 5%, and 3% of pairs per row.
       </p>
+      <img src="static/images/fig2_similarity_hist.png" alt="Histogram of report-report cosine similarity with threshold percentiles marked" style="max-width:520px;display:block;margin:0 auto;">
+      <p class="figure-caption has-text-centered">Distribution of report-report cosine similarity on the training split (projected BiomedVLP-CXR-BERT embeddings), with the tested threshold percentiles marked.</p>
       <p>
         The stricter threshold, &tau; = 0.894, led on almost every metric in both retrieval directions. Fixed top-K, in contrast, had no consistently best value of K &mdash; different K's won on different metrics, in different directions, without a clear pattern. The takeaway: it's not just <em>how many</em> pseudo-positives a report gets that matters, it's whether that number reflects how genuinely similar its neighbours are.
       </p>
