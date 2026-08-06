@@ -18,7 +18,6 @@
 
   <title>Soft-CLIP for Medical Imaging: When "Wrong" Reports Aren't Really Wrong</title>
   <link rel="icon" type="image/x-icon" href="static/images/favicon.ico">
-  <link rel="icon" type="image/png" href="static/images/favicon.png">
   <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
 
   <link rel="stylesheet" href="static/css/bulma.min.css">
@@ -168,6 +167,29 @@
       <p>
         BiomedVLP-CXR-BERT gave the lowest mean and widest spread, so we used it going forward. We then compared three ways to pool its output: the CLS token, mean pooling, and its projected representation (the space it was actually trained to align with images in). The projected representation was the clear winner, with a mean similarity of just 0.035.
       </p>
+
+      <!-- Image carousel -->
+      <section class="hero is-small">
+        <div class="hero-body">
+          <div class="container">
+            <div id="results-carousel" class="carousel results-carousel">
+              <div class="item">
+                <img src="static/images/fig1_sternotomy.png" alt="Query and retrieved chest X-ray, same patient"/>
+                <h2 class="subtitle has-text-centered">Two chest X-rays of the same patient, taken at different visits. Our model kept matching them — because of the wires, not the diagnosis.</h2>
+              </div>
+              <div class="item">
+                <img src="static/images/fig3_query.png" alt="Query chest X-ray"/>
+                <h2 class="subtitle has-text-centered">A query image (portable, semi-erect view) from one of our retrieval examples.</h2>
+              </div>
+              <div class="item">
+                <img src="static/images/fig4_retrieved.png" alt="True and retrieved chest X-ray, same patient"/>
+                <h2 class="subtitle has-text-centered">Two images from the same patient, different visits — retrieval tracked the patient more than the finding.</h2>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- End image carousel -->
 
       <h3 class="title is-4">Fixed top-K vs. a similarity threshold</h3>
       <p>
